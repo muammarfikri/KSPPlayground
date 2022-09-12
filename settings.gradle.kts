@@ -17,7 +17,7 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "KSPProcessor"
+rootProject.name = "KSPPlayground"
 include(":app")
 include(":ksp_annotation")
 include(":ksp_processor")
