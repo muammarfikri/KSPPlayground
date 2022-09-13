@@ -7,10 +7,7 @@ import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSFile
-import com.google.devtools.ksp.symbol.KSNode
 import com.google.devtools.ksp.validate
-import com.google.devtools.ksp.visitor.KSDefaultVisitor
 import com.playground.ksp_annotation.AnnotateMe
 import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
@@ -34,12 +31,6 @@ class PlaygroundProcessor(private val environment: SymbolProcessorEnvironment) :
                 "\"${it.className}\""
             }
             environment.logger.warn(outClassesString)
-//            outputs.forEach {
-//                val propSpec = PropertySpec.builder("output${it.name}", STRING)
-//                    .addOriginatingKSFile(it.originatingFile)
-//                    .initializer("\"${it.className}\"")
-//                objectBuilder.addProperty(propSpec.build()).addOriginatingKSFile(it.originatingFile)
-//            }
             val propertySpec = PropertySpec
                 .builder("validatedClass", LIST.parameterizedBy(STRING))
                 .apply {
@@ -55,13 +46,13 @@ class PlaygroundProcessor(private val environment: SymbolProcessorEnvironment) :
             FileSpec
                 .builder(
                     packageName = packageName,
-                    fileName = "PlaygroundGeneratedClass"
+                    fileName = "PlaygroundGenerated"
                 )
                 .addType(objectBuilder.build())
                 .build()
                 .writeTo(
                     codeGenerator = environment.codeGenerator,
-                    aggregating = false
+                    aggregating = true
                 )
         }
 
@@ -77,44 +68,3 @@ class PlaygroundProcessorProvider : SymbolProcessorProvider {
         return PlaygroundProcessor(environment)
     }
 }
-
-data class Output(
-    val originatingFile: KSFile,
-    val className: String,
-    val name: String,
-)
-
-class PlaygroundVisitor(private val environment: SymbolProcessorEnvironment) :
-    KSDefaultVisitor<Unit, Output?>() {
-
-    override fun visitClassDeclaration(classDeclaration: KSClassDeclaration, data: Unit): Output? {
-        validateSubType(classDeclaration) ?: return null
-
-        return Output(className = classDeclaration.qualifiedName?.asString()!!, originatingFile = classDeclaration.containingFile!!, name = classDeclaration.simpleName.asString())
-    }
-
-    private fun validateSubType(classDeclaration: KSClassDeclaration): KSClassDeclaration? {
-        return validate(
-            classDeclaration = classDeclaration,
-            errorMessage = "Invalid annotation (${classDeclaration.qualifiedName}): ${AnnotateMe::class.qualifiedName} needs to be a subtype of $appCompatActivityClassName"
-        ) { it hasSubType appCompatActivityClassName }
-    }
-
-    private fun validate(
-        classDeclaration: KSClassDeclaration,
-        errorMessage: String,
-        predicate: (KSClassDeclaration) -> Boolean
-    ): KSClassDeclaration? {
-        return if (!predicate(classDeclaration)) {
-            environment.logger.error(errorMessage)
-            null
-        } else classDeclaration
-    }
-
-    override fun defaultHandler(node: KSNode, data: Unit): Output? {
-        return null
-    }
-}
-
-internal infix fun KSClassDeclaration.hasSubType(qualifiedName: String) =
-    superTypes.any { it.resolve().declaration.qualifiedName?.asString() == qualifiedName }
